@@ -151,16 +151,75 @@ Similarly, the rest of the triangle is weighted average of these colors dependin
   makes the image appear jagged. Supersampling with a sampling rate of 16 helps, but only to an extent. The color changes are softer, but there are still blocks of color that we can see, creating a very uneven appearance. 
   Bilinear sampling creates a smoothed look, even with a sampling rate of 1. This is because we're not missing as many texels in the texture image in the displayed image-- more texels are represented as they are weighted together
   in the colors of the pixels that are shown. Increasing sampling rate to 16 here doesn't have a huge effect here, because we're already interpolating multiple texel values. However, we find that it does soften some of the colors. 
+
+  There will be the largest different between the nearest pixel and bilinear sampling when the screen space pixel has the largest texture space footprint, or in an area with high frequency changes (such as lettering). In this case, bilinear sampling is most useful to us. 
 </p>
 
 <h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
-<p> Level sampling accounts for aliasing when sampling a texture image by reducing the resolution of the texture image we are sampling from. </p>
+<p> Level sampling accounts for aliasing when sampling a texture image by reducing the resolution of the texture image we are sampling from. It averages nearby pixels together to create a texture image that is low pass filtered.
+  We use the highest resolution texture image as level 0. From there, we continuously downsample and average pixels to create a stack of texture images at increasingly lower resolutions. This stack is known as a mipmap and takes up 4/3 the
+amount of storage as the original high resolution texture image. We decide on which mip map level to sample from based on the dimensions of the screen pixel footprint in texture space. If a screen pixel is stretched over many texels in the texture space, it is more likely to alias if we sample from a single texel. Thus,
+in this situation, we would want to sample from a lower resolution mip map level, so that the screen pixel footprint mostly spans a single texel. On the other hand, if a screen pixel is relatively 1:1 with a texel, we can sample from a higher resolution mip map level. </p>
 
+<p>Below, I visualized what these mip map levels look like for one of the test images. </p>
+
+  <div align="middle">
+    <table style="width=100%">
+      <tr>
+        <td>
+          <img src="images/task6_0.png" align="middle" width="300px"/>
+          <figcaption align="middle">level 0</figcaption>
+        </td>
+        <td>
+          <img src="images/task6_nearest.png" align="middle" width="300px"/>
+          <figcaption align="middle">nearest level</figcaption>
+        </td>
+        <td>
+          <img src="images/task6_bilinear.png" align="middle" width="300px"/>
+          <figcaption align="middle">bilinearly interpolated levels</figcaption>
+        </td>
+      </tr>
+    </table>
+  </div>
+
+<p> The three level sampling techniques have various tradeoffs. Zero level sampling uses the least memory if we don't create a mipmap, because we only need to store the highest resolution texture image. 
+  Nearest level combats antialiasing by using the texture level with an appropriate resolution. However, we see from above that there are distinct falloffs, which can create discontinuities in the displayed image. It has a greater memory impact than zero level by 4/3, because we need to store the mipmap.
+  Trilinear interpolation interpolates the texel values between two levels together, creating a more smoother image. However, it is more computation intensive than nearest level, because we take into account texel values at two different mip map levels. Thus, it is the slowest method with the greatest anti-aliasing power.
+</p>
+
+
+  <div align="middle">
+    <table style="width=100%">
+      <tr>
+        <td>
+          <img src="images/task6_l0_np.png" align="middle" width="400px"/>
+          <figcaption align="middle">level zero, nearest pixel</figcaption>
+        </td>
+        <td>
+          <img src="images/task6_l0_bl.png" align="middle" width="400px"/>
+          <figcaption align="middle">level zero, bilinear sampling</figcaption>
+        </td>
+      </tr>
+      <br>
+      <tr>
+        <td>
+          <img src="images/task6_ln_np.png" align="middle" width="400px"/>
+          <figcaption align="middle">nearest level, nearest pixel</figcaption>
+        </td>
+        <td>
+          <img src="images/task6_ln_bl.png" align="middle" width="400px"/>
+          <figcaption align="middle">nearest level, bilinear sampling</figcaption>
+        </td>
+      </tr>
+    </table>
+  </div>
 
 <!-- <h2 align="middle">Section III: Art Competition</h2>
 <p>If you are not participating in the optional art competition, don't worry about this section!</p>
 
 <h3 align="middle">Part 7: Draw something interesting!</h3> -->
+
+<p> This website is linked at https://cal-cs184-student.github.io/sp22-project-webpages-sravyab36/proj1/index.html </p>
 
 </body>
 </html>
