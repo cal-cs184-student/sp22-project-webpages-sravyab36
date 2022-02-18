@@ -118,7 +118,7 @@ Similarly, the rest of the triangle is weighted average of these colors dependin
   However, the screen's pixel space doesn’t necessarily map 1:1 to a texture space; different pixels may have differently sized texture footprints in the texture space. 
 
   In my implementation, rasterize_textured_triangle is given xy coordinates of the triangle in screen space, as well as the corresponding uv coordinates in the texture space as a fraction of the texture image size (between 0 and 1).
-  I can use these triangle vertices in screen space to find the Barycentric coordinates of any location inside the triangle, just as we did in rasteize_triangle. I then use those Barycentric weights to find the uv texture coordinates corresponding to each pixel coordinate that we are iterating through. For this part, we start with the highest resolution texture image, but after implementing mip-maps, the texture image may have a different size depending on the level we are sampling from.
+  I can use these triangle vertices in screen space to find the Barycentric coordinates of any location inside the triangle, just as we did in rasterize_triangle. I then use those Barycentric weights to find the uv texture coordinates corresponding to each pixel coordinate that we are iterating through. For this part, we start with the highest resolution texture image, but after implementing mip-maps, the texture image may have a different size depending on the level we are sampling from.
   Thus, the first step is to scale the uv coordinates by the texture image width and height to convert them to texel space. 
   Since the mapping isn't 1:1, these won't always correspond to an exact texel coordinate. I implemented two different methods to resolve this: nearest pixel sampling and bilinear interpolation sampling. Since the texture map is indexed by integer location, the nearest pixel rounds the rescaled uv interpolated coordinate to the nearest integer coordinates. This may result in a jaggy final image, similar to how high frequency details were aliased with a low sample_rate in Task 1. 
   Bilinear interpolation resolves this in a similar matter to super sampling, but weights the four nearby texel colors based on their proximity to the scaled uv coordinate. The result is a smoothed, but blurrier version of the image, as the colors displayed in the pixels of the final image are the weighted averages from several texels.
@@ -160,10 +160,18 @@ Similarly, the rest of the triangle is weighted average of these colors dependin
 
 <h3 align="middle">Part 6: "Level sampling" with mipmaps for texture mapping</h3>
 <p> Level sampling accounts for aliasing when sampling a texture image by reducing the resolution of the texture image we are sampling from. It averages nearby pixels together to create a texture image that is low pass filtered.
-  We use the highest resolution texture image as level 0. From there, we continuously downsample and average pixels to create a stack of texture images at increasingly lower resolutions. This stack is known as a mipmap and takes up 4/3 the
+  We use the highest resolution texture image as level 0. From there, we continuously downsample and average pixels to create a stack of texture images at increasingly lower resolutions. This stacked texture image data structure is known as a mipmap and takes up 4/3 the
 amount of storage as the original high resolution texture image. We decide on which mip map level to sample from based on the dimensions of the screen pixel footprint in texture space. If a screen pixel is stretched over many texels in the texture space, it is more likely to alias if we sample from a single texel. Thus,
 in this situation, we would want to sample from a lower resolution mip map level, so that the screen pixel footprint mostly spans a single texel. On the other hand, if a screen pixel is relatively 1:1 with a texel, we can sample from a higher resolution mip map level. </p>
 
+<ul>
+  <li>L_ZERO : Level zero, as stated above, samples from the highest resolution texture image. It uses the least storage to store the texture image if we only using level zero sampling, as we no longer need a mipmap. 
+    It is also computationally the most efficient, as we no longer need to figure out the size of the texture footprint for a given screen pixel to determine the sampling level. However, the downfall is that we fall subject to spatial aliasing-- level zero sampling has no antialiasing power. </li>
+  <li>L_NEAREST: Nearest level pixel sampling combats antialiasing by using the texture level with an appropriate resolution. However, we see from above that there are distinct falloffs, which can create discontinuities in the displayed image. 
+    It has a greater memory impact than the zero level by 4/3, because we need to store the mipmap.</li>
+  <li> L_LINEAR: Trilinear interpolation interpolates the texel values between two levels together, creating a more smoother image. However, it is more computationally intensive than nearest level, because we take into account texel values at two different mip map levels. Thus, it is the slowest method with the greatest anti-aliasing power.
+  </li>
+</ul>
 <p>Below, I visualized what these mip map levels look like for one of the test images. </p>
 
   <div align="middle">
@@ -185,11 +193,7 @@ in this situation, we would want to sample from a lower resolution mip map level
     </table>
   </div>
 
-<p> The three level sampling techniques have various tradeoffs. Zero level sampling uses the least memory if we don't create a mipmap, because we only need to store the highest resolution texture image. 
-  Nearest level combats antialiasing by using the texture level with an appropriate resolution. However, we see from above that there are distinct falloffs, which can create discontinuities in the displayed image. It has a greater memory impact than zero level by 4/3, because we need to store the mipmap.
-  Trilinear interpolation interpolates the texel values between two levels together, creating a more smoother image. However, it is more computation intensive than nearest level, because we take into account texel values at two different mip map levels. Thus, it is the slowest method with the greatest anti-aliasing power.
-</p>
-
+<p> Below is different combinations of level sampling and pixel sampling on an image of outer space. </p>
 
   <div align="middle">
     <table style="width=100%">
