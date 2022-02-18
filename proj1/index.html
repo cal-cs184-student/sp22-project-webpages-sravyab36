@@ -23,7 +23,7 @@
 
 <body>
 
-<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2018</h1>
+<h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
 <h1 align="middle">Project 1: Rasterizer</h1>
 <h2 align="middle">Sravya Basvapatri, CS184-acj</h2>
 
@@ -32,25 +32,28 @@
 <div>
 
 <h2 align="middle">Overview</h2>
-<p> Jumping in headfirst to computer graphics, I started by implementing a simple rasterizer for SVG file format images. The project divides into two main parts: rasterization and sampling. 
-  Rasterization involves taking a vector graphics format lke an SVG file and converting that description into an image, shown as a series of points, lines, and triangles. 
-  Sampling involves two components: pixel sampling and level sampling. Pixel sampling finds the color to fill each pixel. I 
+<p> Jumping in headfirst to computer graphics, I implemented a simple rasterizer for a simpified version of SVG file format images, an XML-based vector image format. The project divides into two main parts: rasterization and sampling. 
+  <h4>Rasterization. </h4>
+  Rasterization involves taking a vector graphics format like an SVG file and converting that description into an image, shown as a series of points, lines, and triangles. I implement supersampling at various sampling rates to reduce aliasing of the higher frequency details during rasterization. I also implemented transformations, allowing shapes to be translated, scaled, and rotated. </p>
+
+<p><h4>Sampling. </h4>Sampling involves two components: pixel sampling and level sampling. Pixel sampling finds the color to fill each screen pixel from texels in a given texture image. For pixel sampling, I implemented two techniques: nearest neighbor, and bilinear interpolation.
   However, since shapes in the image may be transformed from those in the original texture map, there may no longer be a 1:1 mapping between the pixels in the image and the texels in the texture image. 
   We employ mipmaps to adjust the resolution of texture image that we sample from in order to reduce aliasing when sampling the image's colors. 
 </p>
+<h4>Takeaways! </h4>
 <p>One the most interesting things I learned during this project is of the different techniques that create "blur" in an image. I'd imagined that the image resolution was the only piece that mattered but I understood that in graphics, 
-  an image's appearance has to do with display image size, pixel size, and frequency of details in the image. I also learned how to code in C++ better.
+  an image's appearance has to do with display image size, pixel size, and frequency of details in the image. I also learned how to code in C++ better, because I was completely new to the language before today. 
 </p>
 
 <h2 align="middle">Section I: Rasterization</h2>
 
 <h3 align="middle">Part 1: Rasterizing single-color triangles</h3>
 
-<p>A triangle is rasterized given its three vertices and fill color, which are derived from the SVG class representatiion of the SVG files. The vertices are given as pixel locations within the framebuffer, which holds as many pixel values as there are in the displayed image. I first ensure that the vertices fall within the image's dimensions, returning without rasterizingg the triangle if this is not the case.
-  From there, we have to figure out which points on the screen need to be filled in with the triangle's color. To do this, we perform three line equation tests for the three edges that make up the triangle, which forms the basis for the Point-In-Triangle algorithm.
-  We can find the vectors for each edge by subtracting two vertices: [X_i+1 - X_i, Y_i+1 - Y_i]. From there, we can find the normal vector to the edge: [- (Y_i+1 - Y_i), X_i+1 - X_i]. We know that any point that lies on this edge [X_i+1 - X_i, Y_i+1 - Y_i], when taken as a vector starting from (X_i, Y_i), will have a dot produt of 0 with the normal vector.
-  Similarly, all points that lie on on side of the edge will have a negative dot product with the normal vector, and positive on the opposing side. Using this, we adopt a direction to iterate through the points, then check if a point is on the same direction of all 3 edges. This means its vector dot product with all three normal vectors has the same sign. If this holds
-  true, we know that the point is enclosed by the vertices, and color it accordingly.
+<p>A triangle is rasterized given its three vertices and fill color, which are derived from their SVG representation. The vertices are given as pixel locations within the framebuffer, which holds as many pixel values as there are in the displayed image. The framebuffer defaults to white pixels, which create the background. I first ensure that the vertices fall within the image's dimensions, returning without rasterizing the triangle if this is not the case. This allows me to zoom into the image in the GUI.</p>
+<p>  From there, we have to figure out which points on the screen need to be filled in with the triangle's color. To do this, we perform three line equation tests for the three edges that make up the triangle, which forms the basis for the Point-In-Triangle algorithm. 
+ We can find the vectors for each edge by subtracting two vertices: [X_i+1 - X_i, Y_i+1 - Y_i]. From there, we can find the normal vector to the edge: [- (Y_i+1 - Y_i), X_i+1 - X_i]. We know that any point that lies on this edge [X_i+1 - X_i, Y_i+1 - Y_i], when taken as a vector starting from (X_i, Y_i), will have a dot produt of 0 with the normal vector to the edge.
+  Similarly, all points that lie on one side of the edge will have a negative dot product with the normal vector, and positive on the opposing side of the edge. Using this, we adopt a direction to iterate through the points (clockwise or counterclockwise), and check if a point is on the same direction of all 3 edges. This means its vector dot product with all three normal vectors has the same sign. If this holds
+  true, we know that the point is enclosed by the vertices, and we color it accordingly.
 </p>
 
 <p>To speed up the algorithm, I only check the vertices that are between the maximum triangle vertex index and minimum triangle vertex index, finding these bounds independently for the x and y dimensions. This allows me to create a bounding box around triangle and limit the number of points that I check during the Point-In-Triangle test.</p>
@@ -61,7 +64,7 @@
 
 
 <h3 align="middle">Part 2: Antialiasing triangles</h3>
-<p>Supersampling is a spatial antialiasing technique that sets a pixel value to the average value of several pixel subsamples. As seen above, when sampling only once for each pixel value, we may miss details in high frequency areas, because we can only represent spatial frequencies at a maximum of half our sampling rate, according to the Nyquist sampling theorem.
+<p>Supersampling is a spatial antialiasing technique that sets a pixel value to the average value of several pixel subsamples. When sampling only once for each pixel value, we may miss details in high frequency areas, because we can only represent spatial frequencies at a maximum of half our sampling rate, according to the Nyquist sampling theorem.
   This is a phenomena known as aliasing, and can be seen above in the Part 1 triangle rasterization-- we don't sample frequently enough to capture the high frequency details in the corners of the more acute triangles. We also notice that the triangle edges that we intended to be smooth appear jagged-- these are known as "jaggies." 
   Supersampling samples multiple times within a single pixel within a larger sample framebuffer, and sets the pixel in the screen framebuffer to the average of all the colors from the subpixels before rendering. As a result, we get a slightly "blurrier" appearance, but pixel's are able to more closely represent edges and an area's true color.
   
