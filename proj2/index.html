@@ -1,7 +1,280 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 2 here
-	</body>
-</html>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+
+<head>
+  <style>
+    body {
+      padding: 100px;
+      width: 1000px;
+      margin: auto;
+      text-align: left;
+      font-weight: 300;
+      font-family: 'Open Sans', sans-serif;
+      color: #121212;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      font-family: 'Source Sans Pro', sans-serif;
+    }
+  </style>
+  <title>CS 184 Mesh Editor</title>
+  <meta http-equiv="content-type" content="text/html; charset=utf-8" />
+  <link href="https://fonts.googleapis.com/css?family=Open+Sans|Source+Sans+Pro" rel="stylesheet">
+</head>
+
+
+<body>
+
+  <h1 align="middle">CS 184: Computer Graphics and Imaging, Spring 2022</h1>
+  <h1 align="middle">Project 2: Mesh Editor</h1>
+  <h2 align="middle">Sravya Basvapatri, CS184-acj</h2>
+
+  <br><br>
+
+  <div>
+
+    <h2 align="middle">Overview</h2>
+    <p> In this project, there were two main parts. In the first part, I explore bezier curves and surfaces, allowing me to model a smooth and infinitely scalable surface or curve. I implement 1D Casteljau subdivision in order to represent these curves and surfaces. In the second part of the project, I implemented functions to modify triangle meshes, including with improving shading based on surface normals, flipping or splitting edges, and upsampling meshes using loop subdivision. </p>
+    <p>This project was an entertaining exercise in geometric thinking, because it required me to visualize mesh elements and pointers to successfully manipulate meshes. The most important learning was how effectively meshes are stored n geometric modeling, and how the intentionality behind mesh data structure makes more complicated graphics possibly to render and modify quickly.</p>
+
+    <h2 align="middle">Section I: Bezier Curves and Surfaces</h2>
+
+    <h3 align="middle">Part 1: Bezier curves with 1D de Casteljau subdivision</h3>
+    <p> To start off, I implemented Bezier curves-- interpolating smoothly between a list of conrtrol points. The points are initiated from an input .bzc file, and we use linear interpolation to compute n-1 intermediate control points. 
+      The equation below shows how we recursively apply interpolation, cutting down by 1 control point at each subdivision level, to finally arrive at a single point. We evaluate this function recursively along a parameter t, allowing us to trace a curve. 
+    </p>
+	<img src="images/lerp_bezier.png" align="middle" width="400px" />
+	<p></p>
+
+	<p> Below is the progression of interpolated points, evaluated at about t = 0.5. By tracing the final point along all values of t, we get the final Bezier curve. </p>
+
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/bez1.png" align="middle" width="200px" />
+			  <figcaption align="middle">Control Points (6)</figcaption>
+			</td>
+			<td>
+			  <img src="images/bez2.png" align="middle" width="200px" />
+			  <figcaption align="middle"> 5 </figcaption>
+			</td>
+			<td>
+			  <img src="images/bez3.png" align="middle" width="200px" />
+			  <figcaption align="middle"> 4 </figcaption>
+			</td>
+			<td>
+			  <img src="images/bez4.png" align="middle" width="200px" />
+			  <figcaption align="middle"> 3 </figcaption>
+			</td>
+			<td>
+			  <img src="images/bez5.png" align="middle" width="200px" />
+			  <figcaption align="middle"> 2 </figcaption>
+			</td>
+			<td>
+			  <img src="images/bez6.png" align="middle" width="200px" />
+			  <figcaption align="middle"> 1 final interpolaed point</figcaption>
+			</td>
+		  </tr>
+		  <br>
+  
+		</table>
+	  </div>
+
+	<p>Here is the final curve, as t changes.</p>
+	<img src="images/bez7.png" align="middle" width="400px" />
+
+	<p> We can move the control points around and arrive at a different Bezier curve. Here, I have changed t to show how the final interpolated point traces along a curve that is defined by the initial control points. </p>
+	<img src="images/bez8.png" align="middle" width="400px" />
+
+    <h3 align="middle">Part 2: Bezier surfaces with separable 1D de Casteljau subdivision</h3>
+	<p>Next, we extend Casteljau's algorithm to Bezier surfaces, allowing us to create smooth surfaces rather than those defined by triangular meshes. 
+		We start with a grid of n x n control points. We first evaluate the Bezier point along the rows, so that we have n control points, one for each row. This is done by treating each row as a vector of control points, and applying the recursive algorithm from above for some parameter u. After receiving an n-length vector from this operation, we repeat the same iterative de Casteljau algorithm using the column parameter v, again getting a single point at the end, which will lie on the Bezier surface. To create the surface, we sample continuously along values of the parameters u and v. 
+		Below is a teapot that is created using Bezier surfaces.   
+	</p>
+	<img src="images/teapotbez.png" align="middle" width="400px" />
+
+    <h2 align="middle">Section II: Sampling</h2>
+	<p> In this next section is where geometry and visualization really came in handy to visualize and manipulate mesh pointers. I worked closely with the HalfedgeMesh class that was provided, implemting a data structure consisting of half edges, vertices, edges, and faces. 
+		Unike a simple list of vertices and triangles, using the HalfedgeMesh allows for meaningful traversal and manipulation of the mesh, such as flipping edges, splitting triangles, and upsampling the mesh to be more detailed. In the data structure, half edges act as the "glue," storing connectivity information to each of the other elements. The other elements simply have pointers to one of their half-edges. 
+	</p>
+
+    <h3 align="middle">Part 3: Average normals for half-edge meshes</h3>
+	<p>I started with implementing area-weighted normal vectors at the vertices that could then be used for Phong shading. Instead of giving each triangle in the mesh a single color (flat shading), these vertex normals could then be used to interpolate colors across triangles in the mesh, offering a much smoother color, in a technique known as Phong shading.
+		When implementing the average normal algorithm, the goal was to find the normals for each of the non-boundary faces surrounding a vertex and then perform a weighted average based on their magnitudes. To make this operation simpler, I traversed through all neighoring vertices, creating a two vectors that go between the origin vertex and two neighboring vertices. These vectors trace the sides of an adjacent face to the vertex, so taking their cross product gives me the normal vector of that triangular face. It also provides the magnitude, which allows me to weight that normal accordingly. As I iterated through all neighboring vertices, I took successive cross products of the described vectors and kept them in a running sum. Then, I returned the unit vector in the direction of that weighted sum, to represent the average normal direction of the vector's surrounding faces. 
+	</p>
+
+	<p> Below is our teapot shown with flat shading, and then Phong shading. </p>
+
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/flatshading.png" align="middle" width="500px" />
+			  <figcaption align="middle">Flat shading</figcaption>
+			</td>
+			<td>
+			  <img src="images/phongshading.png" align="middle" width="485px" />
+			  <figcaption align="middle">Phong shading</figcaption>
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	  </div>
+
+    <h3 align="middle">Part 4: Half-edge flip</h3>
+	<p> In this next section, I implemented edge flips. Edge flips don't require any deletion of elements, so it simply requires re-assigning pointers. Being my first time working with meshes, I struggled trying to keep track of which pointers to change. Since every element is pointing to a half-edge, moving a half-edge around felt like a daunting tasks. What was extremely helpful was drawing out a diagram of all possible elements that could be impacted by an edge flip-- all inner and outer edges and halfedges, all vertices, and the two faces. From there, I also created pointers to these elements in code, starting with the halfedge of the edge that I was trying to flip. My initial code was long, and buggy, so after getting a grasp of how to create pointers to surrounding elements, I did another re-assessment. This time I only created pointers to elements whose pointers may need to be re-assigned. For edge flips, outer halfedges are not impacted, so I removed those from my code. I also changed by naming system to have a triangle A and B, which made tracking elements much easier throughout the next few tasks. </p>
+	<p> Below is our teapot mesh before edge flips, and then with a few edges flipped. </p>
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/flatshading.png" align="middle" width="400px" />
+			  <figcaption align="middle">Original</figcaption>
+			</td>
+			<td>
+			<img src="images/edgeflipteapot.png" align="middle" width="435px" />
+			  <figcaption align="middle">Flipped Edges</figcaption>
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	  </div>
+
+    <h3 align="middle">Part 5: Half-edge split</h3>
+	<p> Next, I implemented the edge split operation. After performing the edge flip and going into excruciating debugging detail, I approached the edge split problem much more methodically. I labelled the triangles before as A and B, and called the additional faces C and D. The halfedges around these triangles were given names according the triangle they were in.
+		This made following pointers a lot easier. 
+		When an edge was split, I first found the midpoint of its two vertices through its halfedges, and created a new vertex at that position. From there, I created 2 additional faces, 3 additional edges, and 6 additional half-edges in order to properly annotate the new triangles created by the edge split. 
+		Beyond this, my split edge did not need too much additional debugging, although to implement upsampling in the next step, I did come back to flag which edges are newly created and which are part of the original mesh. </p>
+
+	<p> Below is a mesh before and after performing some edge splits. </p>
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/bean_plain.png" align="middle" width="400px" />
+			  <figcaption align="middle">Original</figcaption>
+			</td>
+			<td>
+			<img src="images/bean_split.png" align="middle" width="410px" />
+			  <figcaption align="middle">Split Edges</figcaption>
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	</div>
+
+	<p> Below is a mesh before and after performing a series of edge splits and flips. </p>
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/bean_plain2.png" align="middle" width="400px" />
+			  <figcaption align="middle">Original</figcaption>
+			</td>
+			<td>
+			<img src="images/bean_split_flip.png" align="middle" width="410px" />
+			  <figcaption align="middle">Split and Flipped Edges</figcaption>
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	</div>
+
+    <h3 align="middle">Part 6: Loop subdivision for mesh upsampling</h3>
+
+	<p> Finally, I made use of my flipEdge and splitEdge functions to implement a more complication mesh manipulation: upsampling using loop subdivision. This takes a coarse polygon mesg and converts it into a high resolution one, making the mesh smoother through interpolatation as it does so. 
+		First, each vertex is assigned a new position, computed as a weighted average of its neighbors depending on its vertex degree. Then, for each edge, I compute the location of where a new vertex would be when I split that edge, again as a weighted average of the vertices of the edge's two surrounding faces. 
+		From there, I go through and split every edge in the mesh. Then, to ensure even-looking triangles, I flip any edge that goes between an old vertex and a new vertex. The end result is a smoother mesh of higher resolution. </p>
+
+	<p> What I notice from subdividing some meshes is that we cannot get a perfectly smooth division-- instead of becoming a sphere, an initial cube becomes a round blob that has pointier regions. It is an assymetric shape. Below, I show subdivision steps of the cube. The cube also illustrates how sharp corners no longer stay sharp, and edges are also divides and smoothed out. </p>
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/cube1.png" align="middle" width="150px" />
+			  <!-- <figcaption align="middle">Original</figcaption> -->
+			</td>
+			<td>
+			<img src="images/cube2.png" align="middle" width="150px" />
+			  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/cube3.png" align="middle" width="150px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/cube4.png" align="middle" width="150px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/cube5.png" align="middle" width="150px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/cube6.png" align="middle" width="150px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	</div>
+	<p> In an effort to maintain a cube-like shape, I tried pre-splitting all the diagonal edges on the cube's faces. This helped the cube subdivide much more symmetrically, because the triangles in the starting cube were then symmetric about the cube's center. Even after several stages of subdivision, this cube is able to maintain a smooth but cube-like shape.   </p>
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/pre-split1.png" align="middle" width="205px" />
+			  <!-- <figcaption align="middle">Original</figcaption> -->
+			</td>
+			<td>
+			<img src="images/pre-split2.png" align="middle" width="200px" />
+			  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/pre-split3.png" align="middle" width="215px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/pre-split4.png" align="middle" width="200px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	</div>
+
+	<p>Then, to try to keep sharp corners intact, I tried flipping diagonals on the cubes faces so that vertices had higher degree to begin with, as shown below. This helped maintain some more pointy corners, this time in a triangula shape. </p>
+	<div align="middle">
+		<table style="width=100%">
+		  <tr>
+			<td>
+			  <img src="images/pre-flip1.png" align="middle" width="205px" />
+			  <!-- <figcaption align="middle">Original</figcaption> -->
+			</td>
+			<td>
+			<img src="images/pre-flip2.png" align="middle" width="200px" />
+			  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/pre-flip3.png" align="middle" width="215px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+			<td>
+				<img src="images/pre-flip4.png" align="middle" width="200px" />
+				  <!-- <figcaption align="middle">Split and Flipped Edges</figcaption> -->
+			</td>
+		  </tr>
+		  <br>
+		</table>
+	</div>
+
+	<p> These unintended shapes result from using a generalized averaging method for vertex positions after upsampling. As a result, vertices are pulled closer together, so even when edges are meant to be maintained, we get a smoother shape as a result. 
+		Intentional maintaining symmetry in the object helps alleviate these assymetrical effects, and sometimes collapsing round faces though a series of edges and flips can create sharper edged objects. </p>
+
+</body>
+
+</html>;
