@@ -1,7 +1,201 @@
-<html>
-	<head>
-	</head>
-	<body>
-		Project 3-2 here
-	</body>
+<!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Strict//EN" "http://www.w3.org/TR/xhtml1/DTD/xhtml1-strict.dtd">
+<html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
+<head>
+<style>  
+    div.padded {  
+      padding-top: 0px;  
+      padding-right: 100px;  
+      padding-bottom: 0.25in;  
+      padding-left: 100px;  
+    }  
+  </style> 
+<title>Sravya Basvapatri  |  CS 184-acj</title>
+<meta http-equiv="content-type" content="text/html; charset=utf-8" />
+<link rel="stylesheet" type="text/css" href="style.css" media="screen" />
+</head>
+<body>
+<br />
+<h1 align="middle">Assignment 3-2: PathTracer, Spring 2022</h1>
+    <h2 align="middle">Sravya Basvapatri</h2>
+	<div class="padded">
+	<p>In this project, I explored additional concepts surrounding rendering more realistic physical surfaces. In project 3, I added color and texture to meshes based on their material properties and lighting in a scene. 
+		However, we only explored diffuse and emissive materials, which is only a dip into the world of materials. In Project 3-2, I explore rendering more materials, including mirror (reflective), glass (reflective and refractive properties), and metals (microfacet textures). </p>
+
+	<p> For grading purposes, I implemented Part 1 and Part 2. Here's a sneak peak at some of the renders! </p>
+	<div align="middle">
+	<table style="width=100%">
+		<tr>
+		  <td>
+			  <img src="images/Lucy_high_res.png" align="middle" width="360px" />
+			  <figcaption align="middle"> Glass Lucy </figcaption>
+		  </td>
+		  <td>
+			<img src="images/Dragon_mirror_high_res.png" align="middle" width="360px" />
+			<figcaption align="middle">Mirror Dragon</figcaption>
+		  </td>
+		  <td>
+			<img src="images/spheres_al_ag_high_res.png" align="middle" width="360px" />
+			<figcaption align="middle"> Silver Aluminum Spheres </figcaption>
+		  </td>
+		  <td>
+			<img src="images/bunny_cu_high_res.png" align="middle" width="360px" />
+			<figcaption align="middle"> Copper Bunny </figcaption>
+		  </td>
+	  </tr>
+	  </table>
+
+	</div>
+	</div>
+
+    <div class="padded">
+
+    <h2 align="middle">Part 1: Mirror and Glass Materials</h2>
+		<p>In the first part of the project, I implement mirror and glass BSDFs. I first implemented a reflect function that takes in a vector and returns the reflection about the surface's normal vector. Since we are working in object space, the normal vector is simply the unit vector in the z direction.
+			To sample the mirror material's surface, I return its reflectance and divide by a cosine term to undo the Lambertian falloff that we implemented in at_least_one_bounce_radiance.
+		</p>
+		<p> Next, I implemented refraction, using Snell's Law. I created a refract function that takes an input vector and assigns the direction for the resulting refraction. The function itself returns a boolean value to determine whether or not refraction actually happens. If there is not total internal refraction, we return the transmittance, divided by the material's eta^2, and by the Lambertian falloff cosine term. </p>
+		<p> For glass materials, we have a mix of reflection and refaction after any bounce of light. However, since sample_f only returns one direction, we use Schlick's approximation and take on a coin flip probability of either reflection or refraction, only rendering one at each bounce. This allows us to effectively render glass materials with our existing code scheme. </p>
+        <p>The following images of CBSpheres have 64 samples per pixel and 4 samples per light. Below, I analyze the changes as we increase the max ray depth. </p>
+			<div align="middle">
+				<table style="width=100%">
+				  <tr>
+					<td>
+						<img src="images/spheres_p1_m0.png" align="middle" width="400px" />
+						<figcaption align="middle">m = 0</figcaption>
+					</td>
+					<td>
+					  <img src="images/spheres_p1_m1.png" align="middle" width="400px" />
+					  <figcaption align="middle">m = 1</figcaption>
+					</td>
+					<td>
+						<img src="images/spheres_p1_m2.png" align="middle" width="400px" />
+						<figcaption align="middle">m = 2</figcaption>
+					  </td>
+				  </tr>
+				  <tr>
+					<td>
+						<img src="images/spheres_p1_m3.png" align="middle" width="400px" />
+						<figcaption align="middle">m = 3</figcaption>
+					</td>
+					<td>
+					  <img src="images/spheres_p1_m4.png" align="middle" width="400px" />
+					  <figcaption align="middle">m = 4</figcaption>
+					</td>
+					<td>
+						<img src="images/spheres_p1_m5.png" align="middle" width="400px" />
+						<figcaption align="middle">m = 5</figcaption>
+					  </td>
+				  </tr>
+				  <br>
+				</table>
+			</div>
+
+		<p> With m = 0, we only see direct lighting, so just emissive materials like lights are visible.</p>
+		<p> With m = 1, we see light after one bounce. Since our materials are reflective, only areas of the spheres that make the perfect specular angle with the camera and light source will be colored. This creates a mirror image of the ceiling light. For the glass ball, part of the light is refracted rather than reflected based on our probabilistic implementation, so we see a patchy reflection of the ceiling light. </p>
+		<p> With m = 2, we see the light after two bounces. We can notice that although the ceiling is lit now, there have not been enough bounces for that light to then reflect off of the mirror and glass balls, so the ceiling in the spheres' reflections appears black. Similarly, the reflection of the glass sphere in the mirror ball also appears black-- instead, it's an image of the glass ball at m - 1. The glass ball largely shows reflections, and refractions have not had the chance to exit the ball yet.</p>
+		<p> With m  = 3, the glass ball is now largely refractive, bending the image of the walls around it. This is because after three bounces, the refracted light exits the glass ball. We see tinges of the red wall on the right side of the glass ball! Taking a look at the mirror ball, the ceiling is now colored, and the image of the glass ball appears as a reflection again at m - 1, which is fairly dark with some color in it.</p>
+		<p> With m = 4, the image of the glass ball in the mirror one is now lit up, as the glass ball appears at m - 1. With that one extra bounce, this light reaches the mirror surface. We also see light bouncing back from the floor onto the surface of the ball-- it first hit the ball, then exited, hit the floor, then bounced back to the ball. Similarly, there is now a light patch on the right wall. </p>
+		<p> With m = 5, the scene largely just becomes brighter, and shadows become softer as light bounces and brightens harder to reach areas. </p>
+
+		<p>After 100 bounces, our image becomes brighter, because we account for more bounces around the scene:</p>
+		<div align="middle">
+			<table style="width=100%">
+			  <tr>
+				<td>
+					<img src="images/spheres_p1_m100.png" align="middle" width="400px" />
+					<figcaption align="middle">m = 100</figcaption>
+				</td>
+			  </tr>
+			  <br>
+			</table>
+		  </div>
+
+		<p> Just for fun, here are the spheres with 256 samples per pixel, 4 samples per light, and a ray depth of 32. It took 94 seconds to render.  </p>
+		<div align="middle">
+			<table style="width=100%">
+			  <tr>
+				<td>
+					<img src="images/spheres_p1_high_res.png" align="middle" width="400px" />
+					<figcaption align="middle">More samples! Clearer image!</figcaption>
+				</td>
+			  </tr>
+			  <br>
+			</table>
+		  </div>
+
+		<p> In this part, the biggest issue I encountered was from setting the index of refraction incorrectly, because it changes depending on whether we're entering or exiting a material. This led to weird artifacts at first, and then a glass ball that was either too dark or too bright. However, after fixing this, I could successfully render more complicated glass structures, like CBlucy.dae.</p>
+
+		<h3 align="middle">Part 2: Microfacet Material</h3>
+		<p> In this part, I implement rendering for isotropic rough conductors. They have small surface aberrations that create a rough appearance. I implement four main functions: one to calculate the Normal Distribution Function, one to calculate the Fresnel term, one to importance sample the BSDF, and one to evaluate the BSDF. Another function for shadow masking was provided. 
+			We assume microfacets are specular, so only surface normals at the half angle of wo and wi will create a bounce of light. We use the Beckmann distribution, similar to the Gaussian distribution, to determine how the microfacet's normals are distributed. Here, a smaller alpha creates a smoother surface and larger one creates a rougher surface. 
+		</p>
+		<p> The Fresnel term, described in more depth below, takes the eta and k wavelength-dependent properties of the material and provides a Vector3D color. We write an importance sampling function, whose importance is explained further below, to replace the cosine hemisphere sampling method. We want to sample with priority on pdfs resembling the normal distribution function. 
+			We use the inversion method by integrating and inversing those pdfs, to then get two angles theta and phi. These can  be used to create a sampled microfacet normal h. We reflect wi according to h to get wo. We then derive the pdf of sampling wi with respect to the solid angle, and return the value of the BSDF at the particular wo and wi values that we sampled.  </p>
+		<p> The following images of CBdragon_microfacet_au.dae were rendered with 128 samples per pixel and 1 sample per light. We see that increasing the alpha value makes the material appear more rough and less shiny. It appears closer to a Lambertian surface as we increase alpha. </p>	
+		<div align="middle">
+				<table style="width=100%">
+				  <tr>
+					<td>
+						<img src="images/dragon_p2_alpha005.png" align="middle" width="500px" />
+						<figcaption align="middle">alpha = 0.005</figcaption>
+					</td>
+					<td>
+					  <img src="images/dragon_p2_alpha05.png" align="middle" width="500px" />
+					  <figcaption align="middle">alpha = 0.05</figcaption>
+					</td>
+				</tr>
+				<tr>
+					<td>
+						<img src="images/dragon_p2_alpha25.png" align="middle" width="500px" />
+						<figcaption align="middle">alpha = 0.25</figcaption>
+					  </td>
+					<td>
+						<img src="images/dragon_p2_alpha5.png" align="middle" width="500px" />
+						<figcaption align="middle">alpha = 0.5</figcaption>
+					</td>
+				  </tr>
+				  <br>
+				</table>
+		</div>
+
+		<p> Here is CBbunny_microfacet_cu.dae with 64 samples per pixel and 1 sample per light, rendered with cosine hemisphere sampling and then with the importance sampling function I wrote. Cosine hemisphere sampling evenly samples rays over a hemisphere. It is good for sampling diffuse Lambertian BSDFs. 
+			However, for a microfacet surface like the bunny, many of these sampled directions may be invalid, so it appears noisy. Importance sampling, instead, samples directions that will have a greater impact on the image, by specifically setting the outgoing vector. Thus, with the same number of samples per pixel, it produces a much less noisy image.</p>
+		
+		<div align="middle">
+			<table style="width=100%">
+			  <tr>
+				<td>
+					<img src="images/bunny_p2_cosine.png" align="middle" width="500px" />
+					<figcaption align="middle">Cosine Hemisphere Sampling </figcaption>
+				</td>
+				<td>
+				  <img src="images/bunny_p2_importance.png" align="middle" width="500px" />
+				  <figcaption align="middle">Importance Sampling </figcaption>
+				</td>
+			</tr>
+			</table>
+		</div>
+
+		<p> Metals are defined by their refractive index (eta) and extinction coefficient (k). By altering these values, I was able to produce the appearance of nickel. Since the air-conductor Fresnel term is wavelength-dependent, I approximated the eta and k terms for each color channel, using the wavelengths of R, G, and B. This was at 614 nm for red), 549 nm for green, and 466 nm for blue.
+			Using the values for eta and k, we can then approximate the Fresnel term, which provides us a 3D vector encoding color information.  
+			I used this website (https://refractiveindex.info/) to choose values for a metal that I was familiar with. 
+		</p>
+		<div align="middle">
+		<table style="width=100%">
+			<tr>
+			  <td>
+				  <img src="images/dragon_p2_nickel.png" align="middle" width="500px" />
+				  <figcaption align="middle">Nickel Dragon</figcaption>
+			  </td>
+		  </tr>
+		  </table>
+		</div>
+
+<p> The biggest challenge from this section came from getting rid of noise within the image, showing as black specks scattered throughout. At first, I didn't have checks to ensure that the wi and wo vectors weren't pointed into the material, which results in invalid negative pdfs. Then, I also needed to implement this same check in f (in addition to sample_f) in order to get rid of all black speck noise. </p>
+<p> I found this project extremely rewarding-- it gave me a chance to explore material properties in further depth and see how that translates to computer renderings of those materials, based on what I've learned in class so far.</p>
+</body>
 </html>
+
+
+
+
